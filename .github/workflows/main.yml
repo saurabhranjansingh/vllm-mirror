@@ -1,0 +1,61 @@
+# -----------------------------------------------------------------------------
+# Workflow: Mirror vLLM image to GHCR
+# Purpose : Mirrors the official vllm/vllm-openai image from Docker Hub to
+#           SkripHQ's GitHub Container Registry using skopeo.
+# Usage   : Trigger manually (Actions → "Mirror vLLM image to GHCR" → enter tag)
+# Output  : Prints the GHCR digest for reproducible deployments.
+# -----------------------------------------------------------------------------
+name: Mirror vLLM image to GHCR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag of the vLLM image on Docker Hub (e.g., v0.11.0)"
+        required: true
+        default: "v0.11.0"
+
+concurrency:
+  group: mirror-vllm-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  GHCR_OWNER: saurabhranjansingh
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show inputs
+        run: echo "Mirroring vllm/vllm-openai:${{ inputs.version }} -> ghcr.io/${{ env.GHCR_OWNER }}/vllm-openai:${{ inputs.version }}"
+
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo jq
+
+      - name: Login to GHCR with GITHUB_TOKEN
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Copy Docker Hub -> GHCR (amd64 only)
+        env:
+          SRC: docker://docker.io/vllm/vllm-openai:${{ inputs.version }}
+          DST: docker://ghcr.io/${{ env.GHCR_OWNER }}/vllm-openai:${{ inputs.version }}-amd64
+        run: |
+          skopeo copy \
+            --override-os linux \
+            --override-arch amd64 \
+            "$SRC" "$DST"
+
+      - name: Show GHCR digest to pin in prod (amd64)
+        env:
+          REF: docker://ghcr.io/${{ env.GHCR_OWNER }}/vllm-openai:${{ inputs.version }}-amd64
+        run: |
+          DIGEST=$(skopeo inspect "$REF" --format '{{.Digest}}')
+          echo "GHCR digest (amd64): $DIGEST"
+          echo "Use in prod: ghcr.io/${{ env.GHCR_OWNER }}/vllm-openai@${DIGEST}"
