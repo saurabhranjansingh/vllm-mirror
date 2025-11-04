@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Workflow: Mirror vLLM image to GHCR
 # Purpose : Mirrors the official vllm/vllm-openai image from Docker Hub to
-#           SkripHQ's GitHub Container Registry using skopeo.
+#           GitHub Container Registry using skopeo.
 # Usage   : Trigger manually (Actions → "Mirror vLLM image to GHCR" → enter tag)
 # Output  : Prints the GHCR digest for reproducible deployments.
 # -----------------------------------------------------------------------------
